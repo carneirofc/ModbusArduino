@@ -1,11 +1,10 @@
 ﻿/**
-Este exemplo � de dom�nio p�blico
-Testado na IDE 1.0.1
-Baseado na biblioteca de Juan Pablo Zometa : jpmzometa@gmail.com
-http://sites.google.com/site/jpmzometa/
-and Samuel Marco: sammarcoarmengol@gmail.com
-and Andras Tucsni.
-As fun��es do protocolo MODBUS implementadas neste c�digo:
+ * Este exemplo é de domínio público
+  Testado na IDE 1.0.1
+  Baseado na biblioteca de Juan Pablo Zometa : jpmzometa@gmail.com
+  http://sites.google.com/site/jpmzometa/
+  and Samuel Marco: sammarcoarmengol@gmail.com and Andras Tucsni.
+  As fun��es do protocolo MODBUS implementadas neste c�digo:
 3 - Read holding registers;
 6 - Preset single register;
 16 - Preset multiple registers.
@@ -30,31 +29,36 @@ who wrote a small program to read 100 registers from a modbus slave.
 
 #define TO_UINT_16_B(uint8_H, uint8_L) ((uint8_t(uint8_H) << 8) + uint8_t(uint8_L))
 
+/** Paridade utilizado */
+typedef enum {
+	MB_PARITY_E = 'e',
+	MB_PARITY_O = 'o',
+	MB_PARITY_N = 'n'
+} ModbusParity;
+
+
 class Modbus {
+
 private:
-	uint8_t mbSlaveId;
-	uint8_t parity;
-	uint32_t commBaudRate;
-	/** Definir o pino usado para colocar o driver RS485 em modo de transmiss�o, utilizado somente em redes RS485 quando colocar em 0 ou 1 para redes RS232 */
-	unsigned int txPin;
-	unsigned int lastBytesReceived;
-	unsigned long Nowdt = 0;
-	const unsigned long T35 = 5;
+	/** Células dentro da matriz de consulta|resposta */
+	enum {
+		POS_VEC_SLAVE = 0,
+		POS_VEC_FUNC,
+		POS_VEC_START_H,
+		POS_VEC_START_L,
+		POS_VEC_REGS_H,
+		POS_VEC_REGS_L,
+		POS_VEC_BYTE_CNT
+	};
 
-	// Registradores 16bit
-	uint16_t* holdingRegisters;
-	int holdingRegistersSize;
-
-	/* Lista de c�digos de fun��o modbus suportados. Se voc� implementar um novo, colocar o seu
-	c�digo de fun��o aqui! */
+	/**
+	* Funcoes Modbus suportadas.
+	*/
 	typedef enum {
 		FC_READ_REGS = 0x03,
 		FC_WRITE_REG = 0x06,
 		FC_WRITE_REGS = 0x10
-		/* Fun��es suportadas. Se voc� implementar um novo, colocar seu c�digo em fun��o nessa
-		matriz! */
 	} FuncModbus;
-
 
 	const FuncModbus funcSupported[3] = {FC_READ_REGS, FC_WRITE_REG, FC_WRITE_REGS};
 
@@ -68,35 +72,29 @@ private:
 		RESPONSE_SIZE = 6,
 		EXCEPTION_SIZE = 3,
 		CHECKSUM_SIZE = 2,
-		/* c�digo de exce��es */
+		/** Código de exceptions */
 		NO_REPLY = -1,
 		EXC_FUNC_CODE = 1,
 		EXC_ADDR_RANGE = 2,
 		EXC_REGS_QUANT = 3,
 		EXC_EXECUT = 4
-
 	};
 
-	/* posi��es dentro da matriz de consulta / resposta */
-	enum {
-		POS_VEC_SLAVE = 0,
-		POS_VEC_FUNC,
-		POS_VEC_START_H,
-		POS_VEC_START_L,
-		POS_VEC_REGS_H,
-		POS_VEC_REGS_L,
-		POS_VEC_BYTE_CNT
-	};
+	uint8_t mbSlaveId;
+	uint8_t parity;
+	uint32_t commBaudRate;
+	/** Definir o pino usado para colocar o driver RS485 em modo de transmiss�o, utilizado somente em redes RS485 quando colocar em 0 ou 1 para redes RS232 */
+	unsigned int txPin;
+	unsigned int lastBytesReceived;
+	unsigned long Nowdt = 0;
+	const unsigned long T35 = 5;
+
+	/** Vetor de registradores 16bit */
+	uint16_t* holdingRegisters;
+	int holdingRegistersSize;
+
 
 public:
-
-	typedef enum {
-		PARITY_E = 'e',
-		PARITY_O = 'o',
-		PARITY_N = 'n'
-	} ModbusParity;
-
-
 	/**
 	* \brief
 	* \param txPin
@@ -107,22 +105,18 @@ public:
 	* \param holdingRegistersSize
 	*/
 	Modbus(uint8_t txPin, uint32_t COMM_BPS, ModbusParity PARITY, uint8_t mbSlaveId, uint16_t* holdingRegisters,
-	       uint16_t holdingRegistersSize);
+		uint16_t holdingRegistersSize);
+	Modbus(uint32_t COMM_BPS, ModbusParity PARITY, uint8_t mbSlaveId, uint16_t* holdingRegisters,
+		uint16_t holdingRegistersSize);
+	
 	/**
-	* update_mb_slave(slave_id, holding_regs_array, number_of_regs)
-	*
-	* verifica se h� qualquer pedido v�lido do mestre modbus. Se houver,
-	* executa a a��o solicitada
-	*
-	* Retorna: 0 se n�o houver pedido do mestre,
-	* NO_REPLY (-1) se nenhuma resposta � enviada para o mestre
-	* Caso um c�digo de exce��o (1 a 4) em algumas exce��es de modbus
-	* PARITY_O n�mero de bytes enviados como resposta (> 4) se OK.
-	*/
+	 * \brief Verifica se há algum pedido válido do mestre. Executa as devidas ações.
+	 * \return -1 No reply; 0 nenhum pedido do mestre; 1-4 para exceptions; (>4) numero de bytes enviados como resposta se ok
+	 */
 	int update_mb_slave();
 	/**
 	*
-	* configura��o dos parametros da porta serial.
+	* configuracao dos parametros da porta serial.
 	*
 	* baud: taxa de transmiss�o em bps (valores t�picos entre 9600, 19200... 115200)
 	* parity: seta o modo de paridade:

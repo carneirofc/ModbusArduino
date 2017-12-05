@@ -38,9 +38,32 @@ who wrote a small program to read 100 registers from a modbus slave.
 */
 Modbus::Modbus(uint8_t txPin, uint32_t commBaudRate, ModbusParity parity,
                uint8_t mbSlaveId, uint16_t* holdingRegisters, uint16_t holdingRegistersSize) :
-	txPin(txPin), commBaudRate(commBaudRate), parity(parity),
+	commBaudRate(commBaudRate), parity(parity),
 	mbSlaveId(mbSlaveId), holdingRegisters(holdingRegisters),
 	holdingRegistersSize(holdingRegistersSize) {
+
+	/* Os pinos 0 e 1 sao reservador para RXTX*/
+	if (txPin > 1) {
+		this->txPin = txPin;
+		pinMode(parity, OUTPUT);
+		digitalWrite(parity, LOW);
+	}
+};
+
+/**
+ * \brief Configuração para o uso de RS232
+ * \param commBaudRate 
+ * \param parity 
+ * \param mbSlaveId 
+ * \param holdingRegisters 
+ * \param holdingRegistersSize 
+ */
+Modbus::Modbus(uint32_t commBaudRate, ModbusParity parity,
+               uint8_t mbSlaveId, uint16_t* holdingRegisters, uint16_t holdingRegistersSize) :
+	commBaudRate(commBaudRate), parity(parity),
+	mbSlaveId(mbSlaveId), holdingRegisters(holdingRegisters),
+	holdingRegistersSize(holdingRegistersSize), txPin(0) {
+
 };
 
 /**************************************
@@ -150,7 +173,7 @@ void Modbus::modbusReply(uint8_t* packet, uint8_t string_length) {
 int Modbus::sendReply(uint8_t* query, uint8_t string_length) {
 	uint8_t i;
 	if (txPin > 1) {
-		// coloca o MAX485 no modo de transmiss�o
+		// coloca o MAX485 no modo de transmissao
 		UCSR0A = UCSR0A | (1 << TXC0);
 		digitalWrite(txPin, HIGH);
 		delayMicroseconds(3640); // aguarda silencio de 3.5 caracteres em 9600bps
@@ -161,7 +184,7 @@ int Modbus::sendReply(uint8_t* query, uint8_t string_length) {
 		Serial.write(byte(query[i]));
 	}
 	if (txPin > 1) {
-		// coloca o MAX485 no modo de recep��o
+		// coloca o MAX485 no modo de recepcao
 		while (!(UCSR0A & (1 << TXC0)));
 		digitalWrite(txPin, LOW);
 	}
@@ -238,7 +261,7 @@ int Modbus::modbusRequest(uint8_t* data) {
 * Fun��o para verificar se o pedido pode ser processado pelo escravo.
 *
 * Retorna: 0 se OK
-* Um c�digo de exce��o negativa em caso de erro
+* Um codigo de excecao negativa em caso de erro
 *
 **********************************************************************/
 int Modbus::validateRequest(uint8_t* data, uint8_t length, uint16_t regs_size) {
@@ -342,15 +365,10 @@ int Modbus::writeSingleRegister(uint16_t write_addr, uint8_t* query, uint16_t* r
 	return (sendReply(packet, RESPONSE_SIZE));
 
 }
-
-/************************************************************************
-*
-* readHoldingRegisters(slave_id, first_register, number_of_registers,
-* registers_array)
-*
-* l� os registros do escravo e envia para o mestre Modbus
-*
-*************************************************************************/
+/**
+* \brief Verifica se há algum pedido válido do mestre. Executa as devidas ações.
+* \return -1 No reply; 0 nenhum pedido do mestre; 1-4 para exceptions; (>4) numero de bytes enviados como resposta se ok
+*/
 int Modbus::readHoldingRegisters(uint16_t start_addr, uint8_t reg_count, uint16_t* regs) {
 	uint8_t function = 0x03; /* Fun��o 03: Read Holding Registers */
 	int packet_size = 3;
@@ -373,36 +391,23 @@ int Modbus::readHoldingRegisters(uint16_t start_addr, uint8_t reg_count, uint16_
 void Modbus::configure_mb_slave() {
 	Serial.begin(commBaudRate);
 	switch (parity) {
-	case 'e': // 8E1
+	case MB_PARITY_E: // 8E1
 		UCSR0C |= ((1 << UPM01) | (1 << UCSZ01) | (1 << UCSZ00));
 		// UCSR0C &= ~((1<<UPM00) | (1<<UCSZ02) | (1<<USBS0));
 		break;
-	case 'o': // 8O1
+	case MB_PARITY_O: // 8O1
 		UCSR0C |= ((1 << UPM01) | (1 << UPM00) | (1 << UCSZ01) | (1 << UCSZ00));
 		// UCSR0C &= ~((1<<UCSZ02) | (1<<USBS0));
 		break;
-	case 'n': // 8N1
+	case MB_PARITY_N: // 8N1
 		UCSR0C |= ((1 << UCSZ01) | (1 << UCSZ00));
 		// UCSR0C &= ~((1<<UPM01) | (1<<UPM00) | (1<<UCSZ02) | (1<<USBS0));
 		break;
 	default:
 		break;
 	}
-	if (parity > 1) {
-		// pino 0 & pino 1 s�o reservados para RX/TX
-		parity = parity; /* definir vari�vel global */
-		pinMode(parity, OUTPUT);
-		digitalWrite(parity, LOW);
-	}
-	return;
-}
+} 
 
-/*
-* update_mb_slave(slave_id, holding_regs_array, number_of_regs)
-*
-* verifica se h� qualquer pedido v�lido do mestre modbus. Se houver,
-* executa a a��o solicitada
-*/
 int Modbus::update_mb_slave() {
 	uint8_t query[MAX_MESSAGE_LENGTH];
 	uint8_t errpacket[EXCEPTION_SIZE + CHECKSUM_SIZE];

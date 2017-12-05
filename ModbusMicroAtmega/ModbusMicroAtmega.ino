@@ -16,7 +16,6 @@ enum {
 	MB_REG_F,
 	MB_REG_TOTAL
 };
-
 uint16_t holdingRegisters[MB_REG_TOTAL];
 const uint8_t txPin = 1;
 const uint32_t commBaudRate = 9600;
@@ -24,7 +23,7 @@ const uint8_t slaveId = 1;
 
 unsigned long wdog = 0; /* watchdog */
 
-Modbus modbus = Modbus(txPin, commBaudRate,  modbus.PARITY_N, slaveId, holdingRegisters, MB_REG_TOTAL);
+Modbus modbus = Modbus(txPin, commBaudRate,  MB_PARITY_N, slaveId, holdingRegisters, MB_REG_TOTAL);
 
 void setup() {
 	// configura o Modbus
