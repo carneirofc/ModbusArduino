@@ -36,18 +36,12 @@ who wrote a small program to read 100 registers from a modbus slave.
 * \param holdingRegisters
 * \param holdingRegistersSize
 */
-Modbus::Modbus(uint8_t txPin, uint32_t commBaudRate, ModbusParity parity, uint8_t mbSlaveId, uint16_t* holdingRegisters,
-	uint16_t holdingRegistersSize) {
-	this->parity = uint8_t(parity);
-	this->lastBytesReceived = 0;
-	this->holdingRegisters = holdingRegisters;
-	this->holdingRegistersSize = holdingRegistersSize;
-	this->txPin = txPin;
-	this->commBaudRate = commBaudRate;
-	this->parity = parity;
-	this->mbSlaveId = mbSlaveId;
-}
-
+Modbus::Modbus(uint8_t txPin, uint32_t commBaudRate, ModbusParity parity,
+               uint8_t mbSlaveId, uint16_t* holdingRegisters, uint16_t holdingRegistersSize) :
+	txPin(txPin), commBaudRate(commBaudRate), parity(parity),
+	mbSlaveId(mbSlaveId), holdingRegisters(holdingRegisters),
+	holdingRegistersSize(holdingRegistersSize) {
+};
 
 /**************************************
 CRC
@@ -89,48 +83,44 @@ uint16_t Modbus::crc(uint8_t* buf, uint8_t start, uint8_t cnt) const {
 *
 ***********************************************************************/
 /*
-* In�cio do pacote de uma resposta read_holding_register
+* Inicio do pacote de uma resposta read_holding_register
 */
-void Modbus::build_read_packet(uint8_t slave, uint8_t function, uint8_t count,
-	uint8_t* packet) {
-	packet[SLAVE] = slave;
-	packet[FUNC] = function;
+void Modbus::buildReadPacket(uint8_t function, uint8_t count, uint8_t* packet) {
+	packet[POS_VEC_SLAVE] = slaveId;
+	packet[POS_VEC_FUNC] = function;
 	packet[2] = count * 2;
 }
 
 /*
 * In�cio do pacote de uma resposta preset_multiple_register
 */
-void Modbus::build_write_packet(uint8_t slave, uint8_t function, uint16_t start_addr,
-	uint8_t count, uint8_t* packet) {
-	packet[SLAVE] = slave;
-	packet[FUNC] = function;
-	packet[START_H] = start_addr >> 8;
-	packet[START_L] = start_addr & 0x00ff;
-	packet[REGS_H] = 0x00;
-	packet[REGS_L] = count;
+void Modbus::buildWritePacket(uint8_t function, uint16_t start_addr, uint8_t count, uint8_t* packet) {
+	packet[POS_VEC_SLAVE] = slaveId;
+	packet[POS_VEC_FUNC] = function;
+	packet[POS_VEC_START_H] = start_addr >> 8;
+	packet[POS_VEC_START_L] = start_addr & 0x00ff;
+	packet[POS_VEC_REGS_H] = 0x00;
+	packet[POS_VEC_REGS_L] = count;
 }
 
 /*
-* In�cio do pacote de uma resposta write_single_register
+* In�cio do pacote de uma resposta writeSingleRegister
 */
-void Modbus::build_write_single_packet(uint8_t slave, uint8_t function, uint16_t write_addr,
-	uint16_t reg_val, uint8_t* packet) {
-	packet[SLAVE] = slave;
-	packet[FUNC] = function;
-	packet[START_H] = write_addr >> 8;
-	packet[START_L] = write_addr & 0x00ff;
-	packet[REGS_H] = reg_val >> 8;
-	packet[REGS_L] = reg_val & 0x00ff;
+void Modbus::buildWriteSinglePacket(uint8_t function, uint16_t write_addr, uint16_t reg_val, uint8_t* packet) {
+	packet[POS_VEC_SLAVE] = slaveId;
+	packet[POS_VEC_FUNC] = function;
+	packet[POS_VEC_START_H] = write_addr >> 8;
+	packet[POS_VEC_START_L] = write_addr & 0x00ff;
+	packet[POS_VEC_REGS_H] = reg_val >> 8;
+	packet[POS_VEC_REGS_L] = reg_val & 0x00ff;
 }
 
 /*
 * In�cio do pacote de uma resposta excep��o
 */
-void Modbus::build_error_packet(uint8_t slave, uint8_t function, uint8_t exception,
-	uint8_t* packet) {
-	packet[SLAVE] = slave;
-	packet[FUNC] = function + 0x80;
+void Modbus::buildErrorPacket(uint8_t function, uint8_t exception, uint8_t* packet) {
+	packet[POS_VEC_SLAVE] = slaveId;
+	packet[POS_VEC_FUNC] = function + 0x80;
 	packet[2] = exception;
 }
 
@@ -142,7 +132,7 @@ void Modbus::build_error_packet(uint8_t slave, uint8_t function, uint8_t excepti
 * Por favor, note que a matriz pacote deve ser de pelo menos 2 campos mais do que
 * String_length.
 **************************************************************************/
-void Modbus::modbus_reply(uint8_t* packet, uint8_t string_length) {
+void Modbus::modbusReply(uint8_t* packet, uint8_t string_length) {
 	int temp_crc;
 	temp_crc = crc(packet, 0, string_length);
 	packet[string_length] = temp_crc >> 8;
@@ -152,12 +142,12 @@ void Modbus::modbus_reply(uint8_t* packet, uint8_t string_length) {
 
 /***********************************************************************
 *
-* send_reply( query_string, query_length )
+* sendReply( query_string, query_length )
 *
 * Fun��o para enviar uma resposta a um mestre Modbus.
 * Retorna: o n�mero total de caracteres enviados
 ************************************************************************/
-int Modbus::send_reply(uint8_t* query, uint8_t string_length) {
+int Modbus::sendReply(uint8_t* query, uint8_t string_length) {
 	uint8_t i;
 	if (txPin > 1) {
 		// coloca o MAX485 no modo de transmiss�o
@@ -165,7 +155,7 @@ int Modbus::send_reply(uint8_t* query, uint8_t string_length) {
 		digitalWrite(txPin, HIGH);
 		delayMicroseconds(3640); // aguarda silencio de 3.5 caracteres em 9600bps
 	}
-	modbus_reply(query, string_length);
+	modbusReply(query, string_length);
 	string_length += 2;
 	for (i = 0; i < string_length; i++) {
 		Serial.write(byte(query[i]));
@@ -180,7 +170,7 @@ int Modbus::send_reply(uint8_t* query, uint8_t string_length) {
 
 /***********************************************************************
 *
-* receive_request( array_for_data )
+* receiveRequest( array_for_data )
 *
 * Fun��o para monitorar um pedido do mestre modbus.
 *
@@ -188,7 +178,7 @@ int Modbus::send_reply(uint8_t* query, uint8_t string_length) {
 * 0 se n�o houver nenhum pedido
 * Um c�digo de erro negativo em caso de falha
 ***********************************************************************/
-int Modbus::receive_request(uint8_t* received_string) {
+int Modbus::receiveRequest(uint8_t* received_string) {
 	int bytes_received = 0;
 	/* FIXME: n�o Serial.available esperar 1.5T ou 3.5T antes de sair do loop? */
 	while (Serial.available()) {
@@ -202,7 +192,7 @@ int Modbus::receive_request(uint8_t* received_string) {
 
 /*********************************************************************
 *
-* modbus_request(slave_id, request_data_array)
+* modbusRequest(slave_id, request_data_array)
 *
 * Fun��o que � retornada quando o pedido est� correto
 * e a soma de verifica��o est� correto.
@@ -214,13 +204,13 @@ int Modbus::receive_request(uint8_t* received_string) {
 * Modbus devolver esses valores de retorno.
 *
 **********************************************************************/
-int Modbus::modbus_request(uint8_t slave, uint8_t* data) {
+int Modbus::modbusRequest(uint8_t* data) {
 	int response_length;
 	uint16_t crc_calc;
 	uint16_t crc_received;
 	uint8_t recv_crc_hi;
 	uint8_t recv_crc_lo;
-	response_length = receive_request(data);
+	response_length = receiveRequest(data);
 	if (response_length > 0) {
 		crc_calc = crc(data, 0, response_length - 2);
 		recv_crc_hi = unsigned(data[response_length - 2]);
@@ -234,7 +224,7 @@ int Modbus::modbus_request(uint8_t slave, uint8_t* data) {
 			return NO_REPLY;
 		}
 		/* verificar a ID do escravo */
-		if (slave != data[SLAVE]) {
+		if (slaveId != data[POS_VEC_SLAVE]) {
 			return NO_REPLY;
 		}
 	}
@@ -243,7 +233,7 @@ int Modbus::modbus_request(uint8_t slave, uint8_t* data) {
 
 /*********************************************************************
 *
-* validate_request(request_data_array, request_length, available_regs)
+* validateRequest(request_data_array, request_length, available_regs)
 *
 * Fun��o para verificar se o pedido pode ser processado pelo escravo.
 *
@@ -251,40 +241,40 @@ int Modbus::modbus_request(uint8_t slave, uint8_t* data) {
 * Um c�digo de exce��o negativa em caso de erro
 *
 **********************************************************************/
-int Modbus::validate_request(uint8_t* data, uint8_t length, uint16_t regs_size) {
+int Modbus::validateRequest(uint8_t* data, uint8_t length, uint16_t regs_size) {
 	int i, fcnt = 0;
 	uint16_t regs_num;
 	uint16_t start_addr;
 	uint8_t max_regs_num = 0;
 	/* verificar o c�digo de fun��o */
 	for (i = 0; i < sizeof(funcSupported); i++) {
-		if (funcSupported[i] == data[FUNC]) {
+		if (funcSupported[i] == data[POS_VEC_FUNC]) {
 			fcnt = 1;
 			break;
 		}
 	}
 	if (0 == fcnt)
 		return EXC_FUNC_CODE;
-	if (FC_WRITE_REG == data[FUNC]) {
+	if (FC_WRITE_REG == data[POS_VEC_FUNC]) {
 		/* Para a fun��o de escrever um reg �nico, este � o registro alvo.*/
-		regs_num = TO_UINT_16_B(data[START_H], data[START_L]);
+		regs_num = TO_UINT_16_B(data[POS_VEC_START_H], data[POS_VEC_START_L]);
 		//regs_num = ((int)data[START_H] << 8) + (int)data[START_L];
 		if (regs_num >= regs_size)
 			return EXC_ADDR_RANGE;
 		return 0;
 	}
 	/* Para as fun��es de leitura / escrita de registros, este � o intervalo. */
-	regs_num = TO_UINT_16_B(data[START_H], data[START_L]);
+	regs_num = TO_UINT_16_B(data[POS_VEC_START_H], data[POS_VEC_START_L]);
 	/* verifica a quantidade de registros */
-	if (FC_READ_REGS == data[FUNC])
+	if (FC_READ_REGS == data[POS_VEC_FUNC])
 		max_regs_num = MAX_READ_REGS;
-	else if (FC_WRITE_REGS == data[FUNC])
+	else if (FC_WRITE_REGS == data[POS_VEC_FUNC])
 		max_regs_num = MAX_WRITE_REGS;
 
 	if ((regs_num < 1) || (regs_num > max_regs_num))
 		return EXC_REGS_QUANT;
 	/* verificar� a quantidade de registros, endere�o inicial � 0 */
-	start_addr = TO_UINT_16_B(data[START_H], data[START_L]);
+	start_addr = TO_UINT_16_B(data[POS_VEC_START_H], data[POS_VEC_START_L]);
 	if ((start_addr + regs_num) > regs_size)
 		return EXC_ADDR_RANGE;
 	return 0; /* OK, sem exce��o */
@@ -292,21 +282,21 @@ int Modbus::validate_request(uint8_t* data, uint8_t length, uint16_t regs_size) 
 
 /************************************************************************
 *
-* write_regs(first_register, data_array, registers_array)
+* writeRegs(first_register, data_array, registers_array)
 *
 * escreve nos registradores do escravo os dados em consulta,
 * A partir de start_addr.
 *
 * Retorna: o n�mero de registros escritos
 ************************************************************************/
-int Modbus::write_regs(uint16_t start_addr, uint8_t* query, uint16_t* regs) {
+int Modbus::writeRegs(uint16_t start_addr, uint8_t* query, uint16_t* regs) {
 	int temp;
 	unsigned int i;
-	for (i = 0; i < query[REGS_L]; i++) {
+	for (i = 0; i < query[POS_VEC_REGS_L]; i++) {
 		/* mudar reg hi_byte para temp */
-		temp = int(query[(BYTE_CNT + 1) + i * 2]) << 8;
+		temp = int(query[(POS_VEC_BYTE_CNT + 1) + i * 2]) << 8;
 		/* OR com lo_byte */
-		temp = temp | int(query[(BYTE_CNT + 2) + i * 2]);
+		temp = temp | int(query[(POS_VEC_BYTE_CNT + 2) + i * 2]);
 		regs[start_addr + i] = temp;
 	}
 	return i;
@@ -314,69 +304,68 @@ int Modbus::write_regs(uint16_t start_addr, uint8_t* query, uint16_t* regs) {
 
 /************************************************************************
 *
-* preset_multiple_registers(slave_id, first_register, number_of_registers,
+* presetMultipleRegisters(slave_id, first_register, number_of_registers,
 * data_array, registers_array)
 *
 * Escreva os dados na matriz dos registos do escravo.
 *
 *************************************************************************/
-int Modbus::preset_multiple_registers(uint8_t slave, uint16_t start_addr, uint8_t count,
-	uint8_t* query, uint16_t* regs) {
+int Modbus::presetMultipleRegisters(uint16_t start_addr, uint8_t count, uint8_t* query, uint16_t* regs) {
 	uint8_t function = FC_WRITE_REGS; /* Escrever em m�ltiplos registros */
 	int status = 0;
 	uint8_t packet[RESPONSE_SIZE + CHECKSUM_SIZE];
-	build_write_packet(slave, function, start_addr, count, packet);
-	if (write_regs(start_addr, query, regs)) {
-		status = send_reply(packet, RESPONSE_SIZE);
+	buildWritePacket(function, start_addr, count, packet);
+	if (writeRegs(start_addr, query, regs)) {
+		status = sendReply(packet, RESPONSE_SIZE);
 	}
 	return (status);
 }
 
 /************************************************************************
 *
-* write_single_register(slave_id, write_addr, data_array, registers_array)
+* writeSingleRegister(slave_id, write_addr, data_array, registers_array)
 *
 * Escrever um �nico valor inteiro em um �nico registo do escravo.
 *
 *************************************************************************/
-int Modbus::write_single_register(uint8_t slave, uint16_t write_addr, uint8_t* query, uint16_t* regs) {
+int Modbus::writeSingleRegister(uint16_t write_addr, uint8_t* query, uint16_t* regs) {
 	uint8_t function = FC_WRITE_REG; /* Fun��o: Write Single Register */
 	unsigned int reg_val;
 	uint8_t packet[RESPONSE_SIZE + CHECKSUM_SIZE];
-	reg_val = query[REGS_H] << 8 | query[REGS_L];
-	build_write_single_packet(slave, function, write_addr, reg_val, packet);
-	regs[write_addr] = (int)reg_val;
+	reg_val = query[POS_VEC_REGS_H] << 8 | query[POS_VEC_REGS_L];
+	buildWriteSinglePacket(function, write_addr, reg_val, packet);
+	regs[write_addr] = int(reg_val);
 	/*
 	written.start_addr=write_addr;
 	written.num_regs=1;
 	*/
-	return (send_reply(packet, RESPONSE_SIZE));
+	return (sendReply(packet, RESPONSE_SIZE));
 
 }
 
 /************************************************************************
 *
-* read_holding_registers(slave_id, first_register, number_of_registers,
+* readHoldingRegisters(slave_id, first_register, number_of_registers,
 * registers_array)
 *
 * l� os registros do escravo e envia para o mestre Modbus
 *
 *************************************************************************/
-int Modbus::read_holding_registers(uint8_t slave, uint16_t start_addr, uint8_t reg_count, uint16_t* regs) {
+int Modbus::readHoldingRegisters(uint16_t start_addr, uint8_t reg_count, uint16_t* regs) {
 	uint8_t function = 0x03; /* Fun��o 03: Read Holding Registers */
 	int packet_size = 3;
 	int status;
 	unsigned int i;
 	uint8_t packet[MAX_MESSAGE_LENGTH];
-	build_read_packet(slave, function, reg_count, packet);
-	for (i = start_addr; i < (start_addr + (uint16_t)reg_count);
-		i++) {
+	buildReadPacket(function, reg_count, packet);
+	for (i = start_addr; i < (start_addr + uint16_t(reg_count));
+	     i++) {
 		packet[packet_size] = regs[i] >> 8;
 		packet_size++;
 		packet[packet_size] = regs[i] & 0x00FF;
 		packet_size++;
 	}
-	status = send_reply(packet, packet_size);
+	status = sendReply(packet, packet_size);
 	return (status);
 }
 
@@ -428,27 +417,26 @@ int Modbus::update_mb_slave() {
 			return 0;
 		}
 		lastBytesReceived = 0;
-		length = modbus_request(SLAVE, query);
+		length = modbusRequest(query);
 		if (length < 1)
 			return length;
-		if (const int exception = validate_request(query, length, holdingRegistersSize)) {
-			build_error_packet(SLAVE, query[FUNC], exception, errpacket);
-			send_reply(errpacket, EXCEPTION_SIZE);
+		if (const int exception = validateRequest(query, length, holdingRegistersSize)) {
+			buildErrorPacket(query[POS_VEC_FUNC], exception, errpacket);
+			sendReply(errpacket, EXCEPTION_SIZE);
 			return (exception);
 		}
-		const uint16_t start_addr = (int(query[START_H]) << 8) + int(query[START_L]);
-		switch (query[FUNC]) {
+		const uint16_t start_addr = (int(query[POS_VEC_START_H]) << 8) + int(query[POS_VEC_START_L]);
+		switch (query[POS_VEC_FUNC]) {
 		case FC_READ_REGS:
-			return read_holding_registers(SLAVE, start_addr, query[REGS_L], holdingRegisters);
+			return readHoldingRegisters(start_addr, query[POS_VEC_REGS_L], holdingRegisters);
 		case FC_WRITE_REGS:
-			return preset_multiple_registers(SLAVE, start_addr, query[REGS_L], query, holdingRegisters);
+			return presetMultipleRegisters(start_addr, query[POS_VEC_REGS_L], query, holdingRegisters);
 		case FC_WRITE_REG:
-			return write_single_register(SLAVE, start_addr, query, holdingRegisters);
+			return writeSingleRegister(start_addr, query, holdingRegisters);
 		default:
 			return 0;
 		}
-	}
-	else {
+	} else {
 		lastBytesReceived = 0;
 		return 0;
 	}

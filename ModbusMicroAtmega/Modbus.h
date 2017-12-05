@@ -32,7 +32,6 @@ who wrote a small program to read 100 registers from a modbus slave.
 
 class Modbus {
 private:
-
 	uint8_t mbSlaveId;
 	uint8_t parity;
 	uint32_t commBaudRate;
@@ -80,13 +79,13 @@ private:
 
 	/* posi��es dentro da matriz de consulta / resposta */
 	enum {
-		SLAVE = 0,
-		FUNC,
-		START_H,
-		START_L,
-		REGS_H,
-		REGS_L,
-		BYTE_CNT
+		POS_VEC_SLAVE = 0,
+		POS_VEC_FUNC,
+		POS_VEC_START_H,
+		POS_VEC_START_L,
+		POS_VEC_REGS_H,
+		POS_VEC_REGS_L,
+		POS_VEC_BYTE_CNT
 	};
 
 public:
@@ -159,24 +158,22 @@ private:
 	/**
 	* In�cio do pacote de uma resposta read_holding_register
 	*/
-	void build_read_packet(uint8_t slave, uint8_t function, uint8_t count, uint8_t* packet);
+	void buildReadPacket(uint8_t function, uint8_t count, uint8_t* packet);
 
 	/**
 	* In�cio do pacote de uma resposta preset_multiple_register
 	*/
-	void build_write_packet(uint8_t slave, uint8_t function, uint16_t start_addr, uint8_t count,
-	                        uint8_t* packet);
+	void buildWritePacket(uint8_t function, uint16_t start_addr, uint8_t count, uint8_t* packet);
 
 	/**
-	* In�cio do pacote de uma resposta write_single_register
+	* In�cio do pacote de uma resposta writeSingleRegister
 	*/
-	void build_write_single_packet(uint8_t slave, uint8_t function, uint16_t write_addr,
-	                               uint16_t reg_val, uint8_t* packet);
+	void buildWriteSinglePacket(uint8_t function, uint16_t write_addr, uint16_t reg_val, uint8_t* packet);
 
 	/**
 	* In�cio do pacote de uma resposta excep��o
 	*/
-	void build_error_packet(uint8_t slave, uint8_t function, uint8_t exception, uint8_t* packet);
+	void buildErrorPacket(uint8_t function, uint8_t exception, uint8_t* packet);
 
 	/*************************************************************************
 	*
@@ -186,20 +183,20 @@ private:
 	* Por favor, note que a matriz pacote deve ser de pelo menos 2 campos mais do que
 	* String_length.
 	**************************************************************************/
-	void modbus_reply(uint8_t* packet, uint8_t string_length);
+	void modbusReply(uint8_t* packet, uint8_t string_length);
 
 	/***********************************************************************
 	*
-	* send_reply( query_string, query_length )
+	* sendReply( query_string, query_length )
 	*
 	* Fun��o para enviar uma resposta a um mestre Modbus.
 	* Retorna: o n�mero total de caracteres enviados
 	************************************************************************/
-	int send_reply(uint8_t* query, uint8_t string_length);
+	int sendReply(uint8_t* query, uint8_t string_length);
 
 	/***********************************************************************
 	*
-	* receive_request( array_for_data )
+	* receiveRequest( array_for_data )
 	*
 	* Fun��o para monitorar um pedido do mestre modbus.
 	*
@@ -207,11 +204,11 @@ private:
 	* 0 se n�o houver nenhum pedido
 	* Um c�digo de erro negativo em caso de falha
 	***********************************************************************/
-	int receive_request(uint8_t* received_string);
+	int receiveRequest(uint8_t* received_string);
 
 	/*********************************************************************
 	*
-	* modbus_request(slave_id, request_data_array)
+	* modbusRequest(slave_id, request_data_array)
 	*
 	* Fun��o que � retornada quando o pedido est� correto
 	* e a soma de verifica��o est� correto.
@@ -223,11 +220,11 @@ private:
 	* Modbus devolver esses valores de retorno.
 	*
 	**********************************************************************/
-	int modbus_request(uint8_t slave, uint8_t* data);
+	int modbusRequest(uint8_t* data);
 
 	/*********************************************************************
 	*
-	* validate_request(request_data_array, request_length, available_regs)
+	* validateRequest(request_data_array, request_length, available_regs)
 	*
 	* Fun��o para verificar se o pedido pode ser processado pelo escravo.
 	*
@@ -235,45 +232,44 @@ private:
 	* Um c�digo de exce��o negativa em caso de erro
 	*
 	**********************************************************************/
-	int validate_request(uint8_t* data, uint8_t length, uint16_t regs_size);
+	int validateRequest(uint8_t* data, uint8_t length, uint16_t regs_size);
 
 	/************************************************************************
 	*
-	* write_regs(first_register, data_array, registers_array)
+	* writeRegs(first_register, data_array, registers_array)
 	*
 	* escreve nos registradores do escravo os dados em consulta,
 	* A partir de start_addr.
 	*
 	* Retorna: o n�mero de registros escritos
 	************************************************************************/
-	int write_regs(uint16_t start_addr, uint8_t* query, uint16_t* regs);
+	int writeRegs(uint16_t start_addr, uint8_t* query, uint16_t* regs);
 
 	/************************************************************************
 	*
-	* preset_multiple_registers(slave_id, first_register, number_of_registers,
+	* presetMultipleRegisters(slave_id, first_register, number_of_registers,
 	* data_array, registers_array)
 	*
 	* Escreva os dados na matriz dos registos do escravo.
 	*
 	*************************************************************************/
-	int preset_multiple_registers(uint8_t slave, uint16_t start_addr, uint16_t count, uint8_t* query,
-	                              uint16_t* regs);
+	int presetMultipleRegisters(uint16_t start_addr, uint16_t count, uint8_t* query, uint16_t* regs);
 	/************************************************************************
 	*
-	* write_single_register(slave_id, write_addr, data_array, registers_array)
+	* writeSingleRegister(slave_id, write_addr, data_array, registers_array)
 	*
 	* Escrever um �nico valor inteiro em um �nico registo do escravo.
 	*
 	*************************************************************************/
-	int write_single_register(uint8_t slave, uint16_t write_addr, uint8_t* query, uint16_t* regs);
+	int writeSingleRegister(uint16_t write_addr, uint8_t* query, uint16_t* regs);
 
 	/************************************************************************
 	*
-	* read_holding_registers(slave_id, first_register, number_of_registers,
+	* readHoldingRegisters(slave_id, first_register, number_of_registers,
 	* registers_array)
 	*
 	* l� os registros do escravo e envia para o mestre Modbus
 	*
 	*************************************************************************/
-	int read_holding_registers(uint8_t slave, uint16_t start_addr, uint16_t reg_count, uint16_t* regs);
+	int readHoldingRegisters(uint16_t start_addr, uint16_t reg_count, uint16_t* regs);
 };

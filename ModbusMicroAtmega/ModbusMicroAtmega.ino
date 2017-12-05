@@ -1,3 +1,7 @@
+/**
+*	Exemplo de utilização da biblioteca Modbus RTU
+*
+*/
 #include "Modbus.h"
 
 /**
@@ -25,7 +29,6 @@ Modbus modbus = Modbus(txPin, commBaudRate,  modbus.PARITY_N, slaveId, holdingRe
 void setup() {
 	// configura o Modbus
 	modbus.configure_mb_slave();
-
 }
 
 void loop() {
