@@ -197,7 +197,7 @@ int Modbus::sendReply(uint8_t* query, uint8_t string_length) {
 *
 * Fun��o para monitorar um pedido do mestre modbus.
 *
-* Retorna: N�mero total de caracteres recebidos se OK
+* Retorna: N�mero total de caracteres recebidos se MB_RES_OK
 * 0 se n�o houver nenhum pedido
 * Um c�digo de erro negativo em caso de falha
 ***********************************************************************/
@@ -208,7 +208,7 @@ int Modbus::receiveRequest(uint8_t* received_string) {
 		received_string[bytes_received] = Serial.read();
 		bytes_received++;
 		if (bytes_received >= MAX_MESSAGE_LENGTH)
-			return NO_REPLY; /* erro de porta */
+			return MB_RES_NO_REPLY; /* erro de porta */
 	}
 	return (bytes_received);
 }
@@ -219,7 +219,7 @@ int Modbus::receiveRequest(uint8_t* received_string) {
 *
 * Fun��o que � retornada quando o pedido est� correto
 * e a soma de verifica��o est� correto.
-* Retorna: string_length se OK
+* Retorna: string_length se MB_RES_OK
 * 0 se n�o
 * Menos de 0 para erros de exce��o
 *
@@ -244,11 +244,11 @@ int Modbus::modbusRequest(uint8_t* data) {
 			crc_received | unsigned(data[response_length - 1]);
 		/*********** verificar CRC da resposta ************/
 		if (crc_calc != crc_received) {
-			return NO_REPLY;
+			return MB_RES_NO_REPLY;
 		}
 		/* verificar a ID do escravo */
 		if (slaveId != data[POS_VEC_SLAVE]) {
-			return NO_REPLY;
+			return MB_RES_NO_REPLY;
 		}
 	}
 	return (response_length);
@@ -260,11 +260,11 @@ int Modbus::modbusRequest(uint8_t* data) {
 *
 * Fun��o para verificar se o pedido pode ser processado pelo escravo.
 *
-* Retorna: 0 se OK
+* Retorna: 0 se MB_RES_OK
 * Um codigo de excecao negativa em caso de erro
 *
 **********************************************************************/
-int Modbus::validateRequest(uint8_t* data, uint8_t length, uint16_t regs_size) {
+Modbus::ModbusResponse Modbus::validateRequest(uint8_t* data, uint8_t length, uint16_t regs_size) {
 	int i, fcnt = 0;
 	uint16_t regs_num;
 	uint16_t start_addr;
@@ -277,14 +277,14 @@ int Modbus::validateRequest(uint8_t* data, uint8_t length, uint16_t regs_size) {
 		}
 	}
 	if (0 == fcnt)
-		return EXC_FUNC_CODE;
+		return MB_RES_EXC_FUNC_CODE;
 	if (FC_WRITE_REG == data[POS_VEC_FUNC]) {
 		/* Para a fun��o de escrever um reg �nico, este � o registro alvo.*/
 		regs_num = TO_UINT_16_B(data[POS_VEC_START_H], data[POS_VEC_START_L]);
 		//regs_num = ((int)data[START_H] << 8) + (int)data[START_L];
 		if (regs_num >= regs_size)
-			return EXC_ADDR_RANGE;
-		return 0;
+			return MB_RES_EXC_ADDR_RANGE;
+		return MB_RES_OK;
 	}
 	/* Para as fun��es de leitura / escrita de registros, este � o intervalo. */
 	regs_num = TO_UINT_16_B(data[POS_VEC_START_H], data[POS_VEC_START_L]);
@@ -295,12 +295,12 @@ int Modbus::validateRequest(uint8_t* data, uint8_t length, uint16_t regs_size) {
 		max_regs_num = MAX_WRITE_REGS;
 
 	if ((regs_num < 1) || (regs_num > max_regs_num))
-		return EXC_REGS_QUANT;
+		return MB_RES_EXC_REGS_QUANT;
 	/* verificar� a quantidade de registros, endere�o inicial � 0 */
 	start_addr = TO_UINT_16_B(data[POS_VEC_START_H], data[POS_VEC_START_L]);
 	if ((start_addr + regs_num) > regs_size)
-		return EXC_ADDR_RANGE;
-	return 0; /* OK, sem exce��o */
+		return MB_RES_EXC_ADDR_RANGE;
+	return MB_RES_OK; /* MB_RES_OK, sem exce��o */
 }
 
 /************************************************************************
@@ -365,6 +365,7 @@ int Modbus::writeSingleRegister(uint16_t write_addr, uint8_t* query, uint16_t* r
 	return (sendReply(packet, RESPONSE_SIZE));
 
 }
+
 /**
 * \brief Verifica se há algum pedido válido do mestre. Executa as devidas ações.
 * \return -1 No reply; 0 nenhum pedido do mestre; 1-4 para exceptions; (>4) numero de bytes enviados como resposta se ok
@@ -406,7 +407,7 @@ void Modbus::configure_mb_slave() {
 	default:
 		break;
 	}
-} 
+}
 
 int Modbus::update_mb_slave() {
 	uint8_t query[MAX_MESSAGE_LENGTH];

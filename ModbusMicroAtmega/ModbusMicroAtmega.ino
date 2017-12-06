@@ -23,7 +23,7 @@ const uint8_t slaveId = 1;
 
 unsigned long wdog = 0; /* watchdog */
 
-Modbus modbus = Modbus(txPin, commBaudRate,  MB_PARITY_N, slaveId, holdingRegisters, MB_REG_TOTAL);
+Modbus modbus = Modbus(txPin, commBaudRate,  Modbus::MB_PARITY_N, slaveId, holdingRegisters, MB_REG_TOTAL);
 
 void setup() {
 	// configura o Modbus

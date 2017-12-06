@@ -29,19 +29,19 @@ who wrote a small program to read 100 registers from a modbus slave.
 
 #define TO_UINT_16_B(uint8_H, uint8_L) ((uint8_t(uint8_H) << 8) + uint8_t(uint8_L))
 
-/** Paridade utilizado */
-typedef enum {
-	MB_PARITY_E = 'e',
-	MB_PARITY_O = 'o',
-	MB_PARITY_N = 'n'
-} ModbusParity;
-
-
 class Modbus {
+
+public:
+	/** Paridade utilizado */
+	enum ModbusParity : uint8_t {
+		MB_PARITY_E = 'e',
+		MB_PARITY_O = 'o',
+		MB_PARITY_N = 'n'
+	};
 
 private:
 	/** Células dentro da matriz de consulta|resposta */
-	enum {
+	enum ModbusPosVec : uint8_t {
 		POS_VEC_SLAVE = 0,
 		POS_VEC_FUNC,
 		POS_VEC_START_H,
@@ -54,12 +54,11 @@ private:
 	/**
 	* Funcoes Modbus suportadas.
 	*/
-	typedef enum {
+	enum FuncModbus {
 		FC_READ_REGS = 0x03,
 		FC_WRITE_REG = 0x06,
 		FC_WRITE_REGS = 0x10
-	} FuncModbus;
-
+	};
 	const FuncModbus funcSupported[3] = {FC_READ_REGS, FC_WRITE_REG, FC_WRITE_REGS};
 
 	enum {
@@ -68,16 +67,20 @@ private:
 		MAX_MESSAGE_LENGTH = 256
 	};
 
-	enum {
+	enum :uint8_t{
 		RESPONSE_SIZE = 6,
 		EXCEPTION_SIZE = 3,
 		CHECKSUM_SIZE = 2,
+	};
+
+	enum ModbusResponse : uint8_t {
 		/** Código de exceptions */
-		NO_REPLY = -1,
-		EXC_FUNC_CODE = 1,
-		EXC_ADDR_RANGE = 2,
-		EXC_REGS_QUANT = 3,
-		EXC_EXECUT = 4
+		MB_RES_NO_REPLY = -1,
+		MB_RES_OK = 0,
+		MB_RES_EXC_FUNC_CODE = 1,
+		MB_RES_EXC_ADDR_RANGE = 2,
+		MB_RES_EXC_REGS_QUANT = 3,
+		MB_RES_EXC_EXECUT = 4
 	};
 
 	uint8_t mbSlaveId;
@@ -105,10 +108,10 @@ public:
 	* \param holdingRegistersSize
 	*/
 	Modbus(uint8_t txPin, uint32_t COMM_BPS, ModbusParity PARITY, uint8_t mbSlaveId, uint16_t* holdingRegisters,
-		uint16_t holdingRegistersSize);
+	       uint16_t holdingRegistersSize);
 	Modbus(uint32_t COMM_BPS, ModbusParity PARITY, uint8_t mbSlaveId, uint16_t* holdingRegisters,
-		uint16_t holdingRegistersSize);
-	
+	       uint16_t holdingRegistersSize);
+
 	/**
 	 * \brief Verifica se há algum pedido válido do mestre. Executa as devidas ações.
 	 * \return -1 No reply; 0 nenhum pedido do mestre; 1-4 para exceptions; (>4) numero de bytes enviados como resposta se ok
@@ -194,7 +197,7 @@ private:
 	*
 	* Fun��o para monitorar um pedido do mestre modbus.
 	*
-	* Retorna: N�mero total de caracteres recebidos se OK
+	* Retorna: N�mero total de caracteres recebidos se MB_RES_OK
 	* 0 se n�o houver nenhum pedido
 	* Um c�digo de erro negativo em caso de falha
 	***********************************************************************/
@@ -206,7 +209,7 @@ private:
 	*
 	* Fun��o que � retornada quando o pedido est� correto
 	* e a soma de verifica��o est� correto.
-	* Retorna: string_length se OK
+	* Retorna: string_length se MB_RES_OK
 	* 0 se n�o
 	* Menos de 0 para erros de exce��o
 	*
@@ -222,11 +225,11 @@ private:
 	*
 	* Fun��o para verificar se o pedido pode ser processado pelo escravo.
 	*
-	* Retorna: 0 se OK
+	* Retorna: 0 se MB_RES_OK
 	* Um c�digo de exce��o negativa em caso de erro
 	*
 	**********************************************************************/
-	int validateRequest(uint8_t* data, uint8_t length, uint16_t regs_size);
+	ModbusResponse validateRequest(uint8_t* data, uint8_t length, uint16_t regs_size);
 
 	/************************************************************************
 	*
